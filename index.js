@@ -66,11 +66,11 @@ async function run() {
         })
 
         // carts data adding here
-        // app.post('/carts', async(req, res)=>{
-        //     const cartsItems = req.body;
-        //     const result = await cartsCollection.insertOne(cartsItems);
-        //     res.send(result);
-        // })
+        app.post('/carts', async(req, res)=>{
+            const cartsItems = req.body;
+            const result = await cartsCollection.insertOne(cartsItems);
+            res.send(result);
+        })
 
         // users
         app.post('/user', async (req, res) => {
