@@ -1,3 +1,4 @@
+const { MongoClient, ServerApiVersion } = require('mongodb');
 const express = require('express');
 const cors = require('cors')
 require('dotenv').config();
@@ -15,7 +16,6 @@ app.get('/', (req, res) => {
 })
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.fsoo8nr.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -41,11 +41,12 @@ async function run() {
             }
         })
 
-        const popularClassesCollection = client.db("summerDB").collection("popularClasses");
-        
-        const instructorsCollection = client.db("summerDB").collection("popularInstructors");
 
-        const userCollection = client.db("summerDB").collection("users");
+        const popularClassesCollection = client.db("summerDB").collection("popularClasses");
+        const instructorsCollection = client.db("summerDB").collection("popularInstructors");
+        const usersCollection = client.db("summerDB").collection("users");
+        const classCollection = client.db('summerDB').collection('class');
+        const cartsCollection = client.db('summerDB').collection('carts');
 
         app.get('/popular', async (req, res) => {
             const cursor = popularClassesCollection.find();
@@ -58,13 +59,43 @@ async function run() {
             res.send(result);
         });
 
+        // all class data here
+        app.get('/class', async (req, res) => {
+            const result = await classCollection.find().toArray();
+            res.send(result);
+        })
+
+        // carts data adding here
+        // app.post('/carts', async(req, res)=>{
+        //     const cartsItems = req.body;
+        //     const result = await cartsCollection.insertOne(cartsItems);
+        //     res.send(result);
+        // })
 
         // users
         app.post('/user', async (req, res) => {
             const users = req.body;
-            const result = await userCollection.insertOne(users);
+            const result = await usersCollection.insertOne(users);
             res.send(result);
         });
+
+
+        // save user information when user signup or social signup
+        // app.put('/user/:email', async (req, res)=>{
+        //     const email = req.params.email;
+        //     const user = req.body;
+        //     const query = {email: email};
+        //     const options ={upsert : true}
+        //     const updateDoc = {
+        //         $set : user
+        //     }
+
+        //     const result = await usersCollection.updateOne(query, updateDoc, options);
+        //     res.send(result);
+        // })
+
+
+
 
 
 
