@@ -66,42 +66,42 @@ async function run() {
         })
 
         // carts data adding here
-        app.post('/carts', async(req, res)=>{
+        app.post('/carts', async (req, res) => {
             const cartsItems = req.body;
             const result = await cartsCollection.insertOne(cartsItems);
             res.send(result);
         })
 
         // specific data find in database 
-        app.get('/carts', async (req, res)=>{
+        app.get('/carts', async (req, res) => {
             const email = req.query.email;
             console.log(email)
-            if(!email){
+            if (!email) {
                 res.send([])
             }
-            const query = {email : email};
+            const query = { email: email };
             const result = await cartsCollection.find(query).toArray();
             res.send(result);
 
         })
 
-        app.delete('/carts/:id', async(req, res)=>{
+        app.delete('/carts/:id', async (req, res) => {
             const id = req.params.id;
             console.log(id);
-            const query = {_id : new ObjectId(id)};
+            const query = { _id: new ObjectId(id) };
             const result = await cartsCollection.deleteOne(query);
             res.send(result);
         })
 
-      
+
         // save user information when user signup or social signup
-        app.put('/users/:email', async (req, res)=>{
+        app.put('/users/:email', async (req, res) => {
             const email = req.params.email;
             const user = req.body;
-            const query = {email: email};
-            const options ={upsert : true};
+            const query = { email: email };
+            const options = { upsert: true };
             const updateDoc = {
-                $set : user
+                $set: user
             }
 
             const result = await usersCollection.updateOne(query, updateDoc, options);
@@ -109,7 +109,7 @@ async function run() {
         })
 
         // get specific user from db
-        app.get('/users', async (req, res)=>{
+        app.get('/users', async (req, res) => {
             const result = await usersCollection.find().toArray();
             res.send(result);
         })
@@ -121,15 +121,30 @@ async function run() {
             console.log(id);
             const filter = { _id: new ObjectId(id) };
             const updateDoc = {
-              $set: {
-                role: 'admin'
-              },
+                $set: {
+                    role: 'admin'
+                },
             };
-      
+
             const result = await usersCollection.updateOne(filter, updateDoc);
             res.send(result);
-    
-          })
+
+        })
+
+        //  make a instructor role in user collection database 
+        app.patch('/users/instructor/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    role: 'instructor'
+                },
+            };
+
+            const result = await usersCollection.updateOne(filter, updateDoc);
+            res.send(result);
+        })
 
 
         // Send a ping to confirm a successful connection
