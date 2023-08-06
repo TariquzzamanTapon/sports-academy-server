@@ -1,4 +1,4 @@
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const express = require('express');
 const cors = require('cors')
 require('dotenv').config();
@@ -72,7 +72,6 @@ async function run() {
             res.send(result);
         })
 
-
         // specific data find in database 
         app.get('/carts', async (req, res)=>{
             const email = req.query.email;
@@ -86,27 +85,28 @@ async function run() {
 
         })
 
-        // users
-        app.post('/user', async (req, res) => {
-            const users = req.body;
-            const result = await usersCollection.insertOne(users);
+        app.delete('/carts/:id', async(req, res)=>{
+            const id = req.params.id;
+            console.log(id);
+            const query = {_id : new ObjectId(id)};
+            const result = await cartsCollection.deleteOne(query);
             res.send(result);
-        });
+        })
 
-
+      
         // save user information when user signup or social signup
-        // app.put('/user/:email', async (req, res)=>{
-        //     const email = req.params.email;
-        //     const user = req.body;
-        //     const query = {email: email};
-        //     const options ={upsert : true}
-        //     const updateDoc = {
-        //         $set : user
-        //     }
+        app.put('/users/:email', async (req, res)=>{
+            const email = req.params.email;
+            const user = req.body;
+            const query = {email: email};
+            const options ={upsert : true};
+            const updateDoc = {
+                $set : user
+            }
 
-        //     const result = await usersCollection.updateOne(query, updateDoc, options);
-        //     res.send(result);
-        // })
+            const result = await usersCollection.updateOne(query, updateDoc, options);
+            res.send(result);
+        })
 
 
 
