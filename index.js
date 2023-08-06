@@ -108,10 +108,28 @@ async function run() {
             res.send(result);
         })
 
+        // get specific user from db
+        app.get('/users', async (req, res)=>{
+            const result = await usersCollection.find().toArray();
+            res.send(result);
+        })
 
 
-
-
+        // make a admin role in user collection database 
+        app.patch('/users/admin/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = {
+              $set: {
+                role: 'admin'
+              },
+            };
+      
+            const result = await usersCollection.updateOne(filter, updateDoc);
+            res.send(result);
+    
+          })
 
 
         // Send a ping to confirm a successful connection
