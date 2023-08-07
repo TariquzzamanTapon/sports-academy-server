@@ -2,7 +2,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const express = require('express');
 const cors = require('cors')
 require('dotenv').config();
-// var jwt = require('jsonwebtoken');
+var jwt = require('jsonwebtoken');
 const app = express();
 const port = process.env.Port || 5000;
 
@@ -31,6 +31,26 @@ const client = new MongoClient(uri, {
 
 });
 
+
+
+const verifyJWT = (req, res, next) => {
+    const authorization = req.headers.authorization;
+    if(!authorization){
+        return res.send({error : true, message : 'unauthorized access'})
+    }
+
+    // token come with (bearer token)
+    const token = authorization.split(' ')[1];
+    jwt.verify(token, process.env.PRIVATE_KEY, function(err, decoded) {
+        if(err){
+            return res.send({error : true, message : 'unauthorized access'})
+        }
+        req.decoded = decoded;
+        next ();
+      });
+}
+
+
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
@@ -47,6 +67,17 @@ async function run() {
         const usersCollection = client.db("summerDB").collection("users");
         const classCollection = client.db('summerDB').collection('class');
         const cartsCollection = client.db('summerDB').collection('carts');
+
+
+
+        // make a token using jwt 
+        app.post('/jwt', async (req, res) => {
+            const user = req.body;
+            const token = jwt.sign(user, process.env.PRIVATE_KEY, {
+                expiresIn: '1h'
+            })
+            res.send({ token })
+        })
 
         app.get('/popular', async (req, res) => {
             const cursor = popularClassesCollection.find();
@@ -73,11 +104,14 @@ async function run() {
         })
 
         // specific data find in database 
-        app.get('/carts', async (req, res) => {
+        app.get('/carts', verifyJWT, async (req, res) => {
             const email = req.query.email;
             console.log(email)
             if (!email) {
                 res.send([])
+            }
+            if(email !== req.decoded.email){
+                return res.send({error : true, message : 'unauthorized access'});
             }
             const query = { email: email };
             const result = await cartsCollection.find(query).toArray();
