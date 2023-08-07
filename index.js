@@ -35,19 +35,19 @@ const client = new MongoClient(uri, {
 
 const verifyJWT = (req, res, next) => {
     const authorization = req.headers.authorization;
-    if(!authorization){
-        return res.send({error : true, message : 'unauthorized access'})
+    if (!authorization) {
+        return res.send({ error: true, message: 'unauthorized access' })
     }
 
     // token come with (bearer token)
     const token = authorization.split(' ')[1];
-    jwt.verify(token, process.env.PRIVATE_KEY, function(err, decoded) {
-        if(err){
-            return res.send({error : true, message : 'unauthorized access'})
+    jwt.verify(token, process.env.PRIVATE_KEY, function (err, decoded) {
+        if (err) {
+            return res.send({ error: true, message: 'unauthorized access' })
         }
         req.decoded = decoded;
-        next ();
-      });
+        next();
+    });
 }
 
 
@@ -67,8 +67,38 @@ async function run() {
         const usersCollection = client.db("summerDB").collection("users");
         const classCollection = client.db('summerDB').collection('class');
         const cartsCollection = client.db('summerDB').collection('carts');
+        const paymentCollection = client.db('summerDB').collection('payments');
 
 
+
+
+        // --------------------Stripe Payment  --------------------------
+
+        // create payment intent
+        app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+            const { price } = req.body;
+            const amount = parseInt(price * 100);
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret
+            })
+        })
+
+        // payment related api
+        app.post('/payments', verifyJWT, async (req, res) => {
+            const payment = req.body;
+            const insertResult = await paymentCollection.insertOne(payment);
+
+            const query = { _id: { $in: payment.cartItems.map(id => new ObjectId(id)) } }
+            const deleteResult = await cartCollection.deleteMany(query)
+
+            res.send({ insertResult, deleteResult });
+        })
 
         // make a token using jwt 
         app.post('/jwt', async (req, res) => {
@@ -90,12 +120,90 @@ async function run() {
             res.send(result);
         });
 
+
+        // ------------------------CLASS INFORMATION ---------------
         // all class data here
         app.get('/class', async (req, res) => {
             const result = await classCollection.find().toArray();
             res.send(result);
         })
 
+        app.post('/class/instructor', verifyJWT, async (req, res) => {
+            const instructorClass = req.body;
+            const result = await classCollection.insertOne(instructorClass);
+            res.send(result);
+
+        })
+
+        // specific user from class database
+        app.get('/class/instructor', verifyJWT, async (req, res) => {
+            const email = req.query.email;
+            console.log(email)
+            if (!email) {
+                res.send([])
+            }
+            if (email !== req.decoded.email) {
+                return res.send({ error: true, message: 'unauthorized access' });
+            }
+            const query = { email: email };
+            const result = await classCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        //  get all class from database
+        app.get('/class', async (req, res) => {
+            const result = await classCollection.find().toArray();
+            res.send(result);
+        })
+
+
+        // change class status to approved
+        app.patch('/class/instructor/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    status: 'approved'
+                },
+            };
+
+            const result = await usersCollection.updateOne(filter, updateDoc);
+            res.send(result);
+
+        })
+        // change class status to approved
+        app.patch('/class/instructor/approved/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    status: 'approved'
+                },
+            };
+
+            const result = await classCollection.updateOne(filter, updateDoc);
+            res.send(result);
+
+        })
+        
+        app.patch('/class/instructor/denied/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    status: 'denied'
+                },
+            };
+
+            const result = await classCollection.updateOne(filter, updateDoc);
+            res.send(result);
+
+        })
+
+        // ------------------------------CARTS INFORMATION ------------------------------
         // carts data adding here
         app.post('/carts', async (req, res) => {
             const cartsItems = req.body;
@@ -110,8 +218,8 @@ async function run() {
             if (!email) {
                 res.send([])
             }
-            if(email !== req.decoded.email){
-                return res.send({error : true, message : 'unauthorized access'});
+            if (email !== req.decoded.email) {
+                return res.send({ error: true, message: 'unauthorized access' });
             }
             const query = { email: email };
             const result = await cartsCollection.find(query).toArray();
@@ -127,6 +235,7 @@ async function run() {
             res.send(result);
         })
 
+        // ------------------------------------USER INFORMATION------------------------------
 
         // save user information when user signup or social signup
         app.put('/users/:email', async (req, res) => {
@@ -143,12 +252,17 @@ async function run() {
         })
 
         // get specific user from db
-        app.get('/users', async (req, res) => {
+        app.get('/users', verifyJWT, async (req, res) => {
             const result = await usersCollection.find().toArray();
             res.send(result);
         })
 
 
+
+
+
+
+        // ---------------------------role ----------------------
         // make a admin role in user collection database 
         app.patch('/users/admin/:id', async (req, res) => {
             const id = req.params.id;
@@ -165,6 +279,21 @@ async function run() {
 
         })
 
+
+        // get a admin from user collection 
+        app.get('/users/admin/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            if (email !== req.decoded.email) {
+                return res.send({ error: true, message: 'unauthorized access' });
+            }
+            const query = { email: email };
+            const user = await usersCollection.findOne(query);
+            const result = { admin: user?.role === 'admin' }
+            res.send(result);
+        })
+
+
+
         //  make a instructor role in user collection database 
         app.patch('/users/instructor/:id', async (req, res) => {
             const id = req.params.id;
@@ -180,6 +309,16 @@ async function run() {
             res.send(result);
         })
 
+        app.get('/users/instructor/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            if (email !== req.decoded.email) {
+                return res.send({ error: true, message: 'unauthorized access' });
+            }
+            const query = { email: email };
+            const user = await usersCollection.findOne(query);
+            const result = { instructor: user?.role === 'instructor' };
+            res.send(result)
+        })
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
