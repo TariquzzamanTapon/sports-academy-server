@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors')
 require('dotenv').config();
 var jwt = require('jsonwebtoken');
+const stripe = require('stripe')(process.env.client_secret)
 const app = express();
 const port = process.env.Port || 5000;
 
@@ -75,9 +76,10 @@ async function run() {
         // --------------------Stripe Payment  --------------------------
 
         // create payment intent
-        app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+        app.post('/create-payment-intent', async (req, res) => {
             const { price } = req.body;
-            const amount = parseInt(price * 100);
+            const amount = (price * 100); 
+            console.log(price, amount);
             const paymentIntent = await stripe.paymentIntents.create({
                 amount: amount,
                 currency: 'usd',
@@ -85,20 +87,45 @@ async function run() {
             });
 
             res.send({
-                clientSecret: paymentIntent.client_secret
+                clientSecret: paymentIntent.client_secret  
             })
         })
+        
+
+       
 
         // payment related api
-        app.post('/payments', verifyJWT, async (req, res) => {
-            const payment = req.body;
-            const insertResult = await paymentCollection.insertOne(payment);
+        app.post('/payments', async (req, res) => {
+            const myPayment = req.body;
+            console.log(myPayment)
+            const insertResult = await paymentCollection.insertOne(myPayment);
+            res.send(insertResult);
 
-            const query = { _id: { $in: payment.cartItems.map(id => new ObjectId(id)) } }
-            const deleteResult = await cartCollection.deleteMany(query)
-
-            res.send({ insertResult, deleteResult });
+            // const query = { _id: { $in: payment.cartItems.map(id => new ObjectId(id)) } }
+            // const deleteResult = await cartCollection.deleteMany(query)
+            // res.send({ insertResult, deleteResult });
         })
+
+        // app.get('/payments', async(req, res)=>{
+        //     const result = await paymentCollection.find().toArray();
+        //     res.send(result);
+        // })
+
+        app.get('/payments', async(req, res)=>{
+            const email = req.query.email;
+            const query = {email : email}
+            const result = await paymentCollection.find(query).toArray();
+            res.send(result)
+        })
+
+
+        // app.get('/carts', verifyJWT, async (req, res) => {
+        //     const email = req.query.email;
+        //     const query = { email: email };
+        //     const result = await cartsCollection.find(query).toArray();
+        //     res.send(result);
+
+        // })
 
         // make a token using jwt 
         app.post('/jwt', async (req, res) => {
@@ -235,6 +262,13 @@ async function run() {
             res.send(result);
         })
 
+        app.get('/carts/:id', async(req, res)=>{
+            const id = req.params.id;
+            const query = {_id : new ObjectId(id)}
+            const result = await cartsCollection.findOne(query);
+            res.send(result);
+        }) 
+
         // ------------------------------------USER INFORMATION------------------------------
 
         // save user information when user signup or social signup
@@ -246,7 +280,6 @@ async function run() {
             const updateDoc = {
                 $set: user
             }
-
             const result = await usersCollection.updateOne(query, updateDoc, options);
             res.send(result);
         })
